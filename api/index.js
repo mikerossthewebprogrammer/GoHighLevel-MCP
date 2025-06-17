@@ -285,13 +285,25 @@ module.exports = async (req, res) => {
     }
     
     // Handle POST (JSON-RPC messages)
-    if (req.method === 'POST') {
-      log("Processing JSON-RPC POST request");
-      
-      let body = '';
-      req.on('data', chunk => {
-        body += chunk.toString();
-      });
+
+if (req.method === 'POST') {
+  log("Processing JSON-RPC POST request");
+
+  // 🛠 FIX: Add SSE headers for POST too!
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive',
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Content-Type, Accept',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS'
+  });
+
+  let body = '';
+  req.on('data', chunk => {
+    body += chunk.toString();
+  });
+    
       
       req.on('end', () => {
         try {
