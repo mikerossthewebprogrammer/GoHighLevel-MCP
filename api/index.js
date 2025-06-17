@@ -286,10 +286,10 @@ module.exports = async (req, res) => {
     
     // Handle POST (JSON-RPC messages)
 
-if (req.method === 'POST') {
+  if (req.method === 'POST') {
   log("Processing JSON-RPC POST request");
 
-  // 🛠 FIX: Add SSE headers for POST too!
+  // ✅ Set correct SSE headers (Claude/Vapi require this)
   res.writeHead(200, {
     'Content-Type': 'text/event-stream',
     'Cache-Control': 'no-cache',
@@ -303,40 +303,31 @@ if (req.method === 'POST') {
   req.on('data', chunk => {
     body += chunk.toString();
   });
-    
-      
-      req.on('end', () => {
-        try {
-          log("Received POST body", body);
-          const message = JSON.parse(body);
-          const response = processJsonRpcMessage(message);
-          
-          log("Sending JSON-RPC response", response);
-          
-          // Send as SSE for MCP protocol compliance
-          sendSSE(res, response);
-          
-          // Close connection after response
-          setTimeout(() => {
-            res.end();
-          }, 100);
-          
-        } catch (error) {
-          log("JSON parse error", error.message);
-          const errorResponse = createJsonRpcResponse(null, null, {
-            code: -32700,
-            message: "Parse error"
-          });
-          sendSSE(res, errorResponse);
-          res.end();
-        }
+
+  req.on('end', () => {
+    try {
+      log("Received POST body", body);
+      const json = JSON.parse(body);
+
+      // ✅ Process tool call and send response
+      const response = processJsonRpcMessage(json);
+      sendSSE(res, response);
+
+      // ✅ Keep connection open for Claude/Vapi to read the stream
+      setTimeout(() => {
+        res.end();
+      }, 2000); // increase from 100ms to 2s
+
+    } catch (error) {
+      log("JSON parse error", error.message);
+      const errorResponse = createJsonRpcResponse(null, null, {
+        code: -32700,
+        message: "Parse error"
       });
-      
-      return;
+      sendSSE(res, errorResponse);
+      res.end();
     }
-  }
-  
-  // Default 404
-  log("Unknown endpoint", req.url);
-  res.status(404).json({ error: 'Not found' });
-}; 
+  });
+
+  return;
+}
